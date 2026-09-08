@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kehilá Mendoza — Tablero financiero</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
+<style>
+:root{color-scheme:light;
+ --bg:#fff;--ink:#16181d;--muted:#6b7280;--line:#e5e7eb;--soft:#f7f8fa;
+ --accent:#1f4e79;--ok:#0f7b4f;--okbg:#e8f5ee;--warn:#a8620a;--warnbg:#fdf3e3;
+ --bad:#b3261e;--badbg:#fdecea;--neutral:#475569;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5;
+ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 18px 60px}
+header.top{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between;
+ border-bottom:2px solid var(--ink);padding-bottom:12px}
+h1{font-size:20px;margin:0;letter-spacing:-.3px}
+.sub{color:var(--muted);font-size:12px;margin-top:3px}
+.ctrls{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+label.f{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:3px;font-weight:700}
+input,select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
+button.btn{font:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;
+ border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+button.btn:hover{background:var(--soft);border-color:#b9c2cd}
+button.btn.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.btn.pri:hover{background:#17395a}
+nav.tabs{display:flex;gap:2px;flex-wrap:wrap;margin:16px 0 20px;border-bottom:1px solid var(--line)}
+nav.tabs button{font:inherit;font-size:13px;font-weight:600;background:none;border:none;
+ border-bottom:2px solid transparent;padding:9px 13px;cursor:pointer;color:var(--muted);white-space:nowrap}
+nav.tabs button:hover{color:var(--ink)}
+nav.tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.page{display:none}.page.on{display:block}
+.banner{border-radius:8px;padding:13px 15px;margin-bottom:16px;font-size:13px;border-left:4px solid}
+.banner.bad{background:var(--badbg);border-color:var(--bad)}
+.banner.warn{background:var(--warnbg);border-color:var(--warn)}
+.banner.ok{background:var(--okbg);border-color:var(--ok)}
+.banner b{display:block;margin-bottom:3px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:10px;margin-bottom:20px}
+.kpi{border:1px solid var(--line);border-radius:8px;padding:12px 13px}
+.kpi .lab{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin-bottom:5px}
+.kpi .val{font-size:21px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.kpi .note{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.35}
+.kpi.bad{background:var(--badbg);border-color:#f0c4c0}.kpi.bad .val{color:var(--bad)}
+.kpi.warn{background:var(--warnbg);border-color:#eddcbe}.kpi.warn .val{color:var(--warn)}
+.kpi.ok{background:var(--okbg);border-color:#c3e2d1}.kpi.ok .val{color:var(--ok)}
+section{margin-bottom:26px}
+h2{font-size:15px;margin:0 0 4px}
+.desc{color:var(--muted);font-size:12px;margin:0 0 12px;max-width:80ch}
+.card{border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:14px}
+.chartbox{position:relative;height:300px}.chartbox.sm{height:230px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:7px 9px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left;font-variant-numeric:normal}
+th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;
+ border-bottom:1.5px solid var(--ink);white-space:nowrap}
+tbody tr:hover{background:var(--soft)}
+tr.grp td{background:var(--soft);font-weight:700;font-size:11px;text-transform:uppercase;color:var(--neutral)}
+tr.tot td{font-weight:700;border-top:1.5px solid var(--ink);background:#fbfcfd}
+td.neg{color:var(--bad)}td.pos{color:var(--ok)}
+.pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;text-transform:uppercase}
+.pill.alta{background:var(--badbg);color:var(--bad)}
+.pill.media{background:var(--warnbg);color:var(--warn)}
+.pill.baja{background:var(--okbg);color:var(--ok)}
+.pill.tbd{background:#eef1f5;color:var(--neutral)}
+#setup{max-width:640px;margin:60px auto;padding:26px;border:1px solid var(--line);border-radius:10px}
+#setup h2{font-size:18px;margin:0 0 6px}
+#setup ol{padding-left:20px;color:var(--muted);font-size:13px;line-height:1.7}
+#setup input{width:100%;margin:10px 0 4px;font-size:14px;padding:9px 11px}
+.err{color:var(--bad);font-size:12.5px;margin-top:10px;line-height:1.55}
+.err:not(:empty){background:var(--badbg);border-left:3px solid var(--bad);border-radius:6px;padding:11px 13px}
+.err code{background:#fff;border:1px solid #f0c4c0}
+#aviso{background:var(--warnbg);border-left:3px solid var(--warn);border-radius:6px;
+  padding:11px 13px;font-size:12.5px;line-height:1.55;color:#7a4a08;margin-bottom:14px}
+#loading{text-align:center;padding:70px 20px;color:var(--muted);font-size:14px}
+.spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--accent);
+ border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 14px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.foot{border-top:1px solid var(--line);margin-top:30px;padding-top:14px;font-size:11px;color:var(--muted)}
+code{background:var(--soft);padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+
+<!-- ═══════ CONFIGURACIÓN INICIAL ═══════ -->
+<div id="setup" style="display:none">
+  <h2>Conectar la planilla</h2>
+  <p class="sub" style="margin-bottom:16px">El tablero lee los datos de una planilla de Google Sheets. Solo hace falta configurarlo una vez por navegador.</p>
+  <div id="aviso" style="display:none"></div>
+  <ol>
+    <li>Abrí la planilla <b>Kehilá — planilla de carga</b> en Google Sheets.</li>
+    <li>Andá a <b>Compartir</b> y poné «Cualquier persona con el enlace» como <b>Lector</b>.</li>
+    <li>Copiá el enlace y pegalo acá abajo.</li>
+  </ol>
+  <input id="url-in" placeholder="Pegá acá el enlace de la planilla" autocomplete="off">
+  <div class="err" id="err"></div>
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <button class="btn pri" id="b-conn">Conectar</button>
+    <button class="btn" id="b-demo">Ver con datos de ejemplo</button>
+  </div>
+</div>
+
+<div id="loading" style="display:none"><div class="spin"></div>Leyendo la planilla…</div>
+
+<!-- ═══════ TABLERO ═══════ -->
+<div class="wrap" id="app" style="display:none">
+<header class="top">
+  <div>
+    <h1>Kehilá Mendoza — Tablero financiero</h1>
+    <div class="sub">Sinagoga · Cementerios · Acción Social · DAC · Amijai</div>
+  </div>
+  <div class="ctrls">
+    <div><label class="f" for="tc">Tipo de cambio</label><input id="tc" type="number" style="width:100px"></div>
+    <button class="btn" id="b-reload">Actualizar datos</button>
+    <button class="btn" id="b-sheet">Abrir planilla</button>
+    <div><label class="f" for="vista">Vista</label><select id="vista">
+      <option value="tes">Tesorería</option><option value="com">Comisión</option></select></div>
+    <button class="btn" id="b-config">Cambiar planilla</button>
+  </div>
+</header>
+<div class="sub" id="stamp" style="margin-bottom:6px"></div>
+
+<nav class="tabs">
+  <button data-p="resumen" class="on">Resumen</button>
+  <button data-p="liquidez">Liquidez</button>
+  <button data-p="deuda">Deuda</button>
+  <button data-p="cuotas">Cuotas</button>
+  <button data-p="donaciones">Donaciones</button>
+  <button data-p="proyeccion">Proyección</button>
+  <button data-p="proyectos">Proyectos</button>
+</nav>
+
+<div class="page on" id="p-resumen">
+  <div class="banner bad" id="ban-res"></div>
+  <div class="kpis" id="k-res"></div>
+  <section><h2>Composición de los ingresos</h2>
+    <p class="desc">Separar ingreso genuino de consumo de activos es la distinción central del tablero.</p>
+    <div class="grid2">
+      <div class="card"><div class="chartbox sm"><canvas id="c-mix"></canvas></div></div>
+      <div class="card"><table id="t-mix"></table></div>
+    </div></section>
+  <section><h2>Flujo mensual: declarado y real</h2>
+    <p class="desc">La línea roja excluye la venta de dólares y de parcelas, que no son ingresos renovables.</p>
+    <div class="card"><div class="chartbox"><canvas id="c-flujo"></canvas></div></div></section>
+</div>
+
+<div class="page" id="p-liquidez">
+  <div class="kpis" id="k-liq"></div>
+  <section><h2>Ingresos y egresos por mes</h2>
+    <div class="card"><div class="chartbox"><canvas id="c-ie"></canvas></div></div></section>
+  <section><h2>Detalle mensual</h2>
+    <div class="card" style="padding:0;overflow-x:auto"><table id="t-flujo"></table></div></section>
+  <section><h2>Caja y tenencias</h2>
+    <div class="card" style="padding:0;overflow-x:auto"><table id="t-caja"></table></div></section>
+</div>
+
+<div class="page" id="p-deuda">
+  <div class="kpis" id="k-deu"></div>
+  <section><h2>Composición por categoría</h2>
+    <div class="grid2">
+      <div class="card"><div class="chartbox sm"><canvas id="c-deuda"></canvas></div></div>
+      <div class="card"><table id="t-deucat"></table></div>
+    </div></section>
+  <section><h2>Detalle por acreedor</h2>
+    <div class="card" style="padding:0;overflow-x:auto"><table id="t-deuda"></table></div></section>
+</div>
+
+<div class="page" id="p-cuotas">
+  <div class="kpis" id="k-cuo"></div>
+  <section><h2>Padrón por categoría</h2>
+    <div class="card" style="padding:0;overflow-x:auto"><table id="t-padron"></table></div></section>
+  <section><h2>Escalera de cobrabilidad</h2>
+    <p class="desc">Cuánto aporta cada escalón al año. Es la palanca más barata: no requiere invertir.</p>
+    <div class="card" style="padding:0;overflow-x:auto"><table id="t-esc"></table></div></section>
+  <section><h2>Recaudación mensual</h2>
+    <div class="card"><div class="chartbox"><canvas id="c-cuotas"></canvas></div></div></section>
+</div>
+
+<div class="page" id="p-donaciones">
+  <div class="banner warn" id="ban-don"></div>
+  <div class="kpis" id="k-don"></div>
+  <section><h2>Para qué se donó</h2>
+    <p class="desc">Lo afectado a un proyecto no es caja libre: entró con destino y ahí tiene que ir.
+    Solo la columna de libre disponibilidad cubre el gasto corriente.</p>
+    <div class="grid2">
+      <div class="card"><div class="chartbox sm"><canvas id="c-dest"></canvas></div></div>
+      <div class="card"><table id="t-dest"></table></div>
+    </div></section>
+  <section><h2>Fondeo de cada proyecto</h2>
+    <p class="desc">Cuánto se juntó contra cuánto hace falta. Es el número que se le muestra a un donante
+    para que vea dónde se para su aporte.</p>
+    <div class="card" style="padding:0;overflow-x:auto"><table id="t-fondeo"></table></div></section>
+  <section><h2>Calendario de acreditación</h2>
+    <p class="desc">Cheques y promesas todavía no acreditados, por mes de cobro. Hasta que se acredita,
+    no es caja disponible.</p>
+    <div class="card" style="padding:0;overflow-x:auto"><table id="t-cal"></table></div></section>
+  <section><h2>Ingreso de donaciones por mes</h2>
+    <div class="card"><div class="chartbox"><canvas id="c-dontime"></canvas></div></div></section>
+  <section><h2>Concentración de donantes</h2>
+    <p class="desc">Cuánto depende la institución de pocas personas. Si los tres primeros explican más
+    de la mitad, es un riesgo de continuidad.</p>
+    <div class="grid2">
+      <div class="card" style="padding:0;overflow-x:auto"><table id="t-donantes"></table></div>
+      <div class="card"><div class="chartbox sm"><canvas id="c-donantes"></canvas></div></div>
+    </div></section>
+  <section><h2>Detalle de donaciones</h2>
+    <div class="card" style="padding:0;overflow-x:auto"><table id="t-don"></table></div></section>
+</div>
+
+<div class="page" id="p-proyeccion">
+  <div class="banner warn">
+    <b>Cómo leer esto.</b> Está en dólares y asume que cuota, sueldos y tipo de cambio se mueven
+    juntos con la inflación. El perfil mes a mes de los ingresos esporádicos replica el comportamiento
+    real de los últimos doce meses, con el pico de donaciones en Altas Fiestas.
+    Los supuestos se editan en la hoja <b>Supuestos</b> de la planilla.
+  </div>
+  <div class="kpis" id="k-pro"></div>
+  <section><h2>Flujo proyectado a doce meses</h2>
+    <div class="card"><div class="chartbox"><canvas id="c-proj"></canvas></div></div></section>
+  <section><h2>Caja proyectada por escenario</h2>
+    <div class="card"><div class="chartbox"><canvas id="c-caja"></canvas></div></div></section>
+  <section><h2>Detalle mensual</h2>
+    <div class="card" style="padding:0;overflow-x:auto"><table id="t-proj"></table></div></section>
+  <section><h2>Escenarios</h2>
+    <div class="card" style="padding:0;overflow-x:auto"><table id="t-escen"></table></div></section>
+</div>
+
+<div class="page" id="p-proyectos">
+  <section><h2>Cartera de proyectos y necesidad de financiamiento</h2>
+    <p class="desc">Cada destino con su monto y urgencia. Se edita en la hoja <b>Proyectos</b>.</p>
+    <div class="card" style="padding:0;overflow-x:auto"><table id="t-proy"></table></div></section>
+  <div class="banner warn">
+    <b>Sobre la estrategia con donantes.</b> El hueco operativo es lo más urgente y lo que menos gusta
+    financiar. Pero el gasto corriente hoy incluye el fee de Amijai y las becas de cuota social:
+    conseguir donantes para esos destinos libera caja operativa por el mismo monto, con un relato
+    que sí se puede presentar.
+  </div>
+</div>
+
+<div class="foot">
+  Los datos se leen de la planilla de Google Sheets cada vez que se abre el tablero.
+  Para corregir un número, editalo en la planilla y apretá «Actualizar datos».
+  Este tablero es una herramienta de gestión, no un estado contable auditado.
+</div>
+</div>
+
+<script>
+/* ═══════════ CONFIG ═══════════ */
+const LS='kehila_sheet_url';
+let SHEET_ID=null, DEMO=false, D={}, charts={};
+const el=id=>document.getElementById(id);
+const HOJAS=['Supuestos','Padron','Caja','Deuda','Flujo','Donaciones','Proyectos'];
+
+function idDesdeUrl(u){
+  const m=String(u).match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if(m) return m[1];
+  if(/^[a-zA-Z0-9-_]{20,}$/.test(String(u).trim())) return String(u).trim();
+  return null;
+}
+
+/* ═══════════ CSV ═══════════ */
+function parseCSV(t){
+  const rows=[]; let row=[], cur='', q=false;
+  for(let i=0;i<t.length;i++){
+    const c=t[i];
+    if(q){
+      if(c==='"'){ if(t[i+1]==='"'){cur+='"';i++;} else q=false; }
+      else cur+=c;
+    }else{
+      if(c==='"') q=true;
+      else if(c===','){ row.push(cur); cur=''; }
+      else if(c==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
+      else if(c!=='\r') cur+=c;
+    }
+  }
+  if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+  return rows;
+}
+const num=v=>{
+  if(v==null) return 0;
+  const s=String(v).replace(/[$\s]/g,'').replace(/\.(?=\d{3}\b)/g,'').replace(',','.');
+  const n=parseFloat(s); return isNaN(n)?0:n;
+};
+// Filas que la planilla usa para totales o comentarios, y que no son datos.
+const esTotal = s => /^(total|totales|subtotal|suma|recordá|recorda|la columna|nota)/i.test(String(s||'').trim());
+// Convierte filas crudas en objetos, usando la fila de encabezado que encuentre.
+function tabla(rows, headerHint){
+  let hi=rows.findIndex(r=>r.some(c=>String(c).trim().toLowerCase()===headerHint.toLowerCase()));
+  if(hi<0) hi=0;
+  const H=rows[hi].map(x=>String(x).trim());
+  const out=[];
+  for(let i=hi+1;i<rows.length;i++){
+    const r=rows[i];
+    const p=String(r&&r[0]||'').trim();
+    if(!p || esTotal(p)) continue;          // sin etiqueta, o es una fila de total
+    if(p.length>60) continue;                // texto largo: es una aclaración, no un dato
+    const o={}; H.forEach((h,j)=>{ if(h) o[h]=r[j]!==undefined?String(r[j]).trim():''; });
+    out.push(o);
+  }
+  return out;
+}
+async function leerHoja(hoja){
+  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(hoja)}`;
+  let r;
+  try{ r=await fetch(url,{cache:'no-store'}); }
+  catch(e){
+    // "Failed to fetch" = el navegador bloqueó el pedido antes de salir. Casi siempre es el entorno.
+    const err=new Error(''); err.entorno=true; throw err;
+  }
+  if(!r.ok) throw new Error(`No se pudo leer la hoja "${hoja}". Google respondió con el código ${r.status}. `+
+    (r.status===404?'Revisá que el enlace sea correcto y que la hoja se llame exactamente «'+hoja+'».':
+     'Revisá que la planilla esté compartida como «Cualquiera con el enlace: Lector».'));
+  const t=await r.text();
+  if(t.trim().startsWith('<')) throw new Error('La planilla existe pero no es pública. En Google Sheets: Compartir → Acceso general → «Cualquier persona con el enlace» como Lector.');
+  return parseCSV(t);
+}
+// Mensaje de diagnóstico cuando el navegador bloquea la conexión.
+function diagEntorno(){
+  const p=location.protocol;
+  if(p==='file:') return `<b>El tablero está abierto como archivo local.</b><br>
+    Los navegadores no dejan que un archivo abierto con doble clic lea datos de internet, así que la conexión
+    con Google Sheets falla siempre en este modo. <b>Solución:</b> subí el archivo <code>index.html</code> a
+    <b>app.netlify.com/drop</b> — se arrastra a la ventana y en unos segundos te da una dirección web.
+    Abriendo el tablero desde esa dirección, funciona.`;
+  if(window.self!==window.top) return `<b>El tablero está abierto dentro de otra aplicación.</b><br>
+    Ese visor bloquea las conexiones a sitios externos, así que no puede leer Google Sheets.
+    <b>Solución:</b> subí el archivo <code>index.html</code> a <b>app.netlify.com/drop</b> y abrilo desde la
+    dirección web que te da, en una pestaña normal del navegador.`;
+  return `<b>El navegador bloqueó la conexión con Google.</b><br>
+    Puede ser un bloqueador de publicidad, una extensión de privacidad o la red del lugar donde estás.
+    Probá en una ventana de incógnito, o desde otra conexión. Si el tablero está abierto como archivo local
+    o dentro de otra aplicación, subilo a <b>app.netlify.com/drop</b> y abrilo desde ahí.`;
+}
+
+/* ═══════════ DATOS DE EJEMPLO ═══════════ */
+function datosDemo(){
+  return {
+   sup:{tipo_cambio:1450,cobrabilidad:75,factor_esporadicos:100,factor_egresos:100,deterioro_cuota:0},
+   pad:[{Categoria:'Autoseguro',Cuotas:32,nom:31500,ef:28127,nue:34500},
+        {Categoria:'Cuota social individual',Cuotas:123,nom:41000,ef:35943,nue:45000},
+        {Categoria:'Cuota social familiar',Cuotas:203,nom:45000,ef:41000,nue:50000},
+        {Categoria:'Plus individual',Cuotas:1,nom:80000,ef:80000,nue:80000},
+        {Categoria:'Plus familiar',Cuotas:8,nom:90000,ef:90000,nue:90000}],
+   caja:[{Concepto:'Caja en pesos',Moneda:'ARS',Saldo:4868002,Tipo:'Operativa',Notas:''},
+         {Concepto:'Banco Macro cuenta en dólares',Moneda:'USD',Saldo:16681,Tipo:'Operativa',Notas:'A reconfirmar'},
+         {Concepto:'Nix Valores',Moneda:'USD',Saldo:8582,Tipo:'Operativa',Notas:'En letras'},
+         {Concepto:'Caja de seguridad de oficina',Moneda:'USD',Saldo:2067,Tipo:'Operativa',Notas:'Efectivo'},
+         {Concepto:'Reserva de emergencia en banco externo',Moneda:'USD',Saldo:40000,Tipo:'Reserva',Notas:'No se usa para gasto corriente'}],
+   deu:[['Aportes y contribuciones seguridad social','Previsional y fiscal','F931','ARS',10048352.83,'Alta',''],
+        ['OSPELSYM obra social','Previsional y fiscal','F931','ARS',1742479.63,'Alta',''],
+        ['UTEDYC sindicato','Previsional y fiscal','F931','ARS',690764.83,'Media',''],
+        ['ARCA plan de pagos 1','Previsional y fiscal','Cuota 9 de 12','ARS',1239300,'Alta',''],
+        ['ARCA plan de pagos 2','Previsional y fiscal','Cuota 9 de 60','ARS',255528,'Alta',''],
+        ['ART Asociart','Previsional y fiscal','F931','ARS',137599.19,'Media',''],
+        ['Cementerio Tubert Irrigación','Impuestos y tasas','A10760066','ARS',21506330.08,'Alta',''],
+        ['Cementerio Las Heras Municipalidad','Impuestos y tasas','002358-00','ARS',7760189.09,'Alta',''],
+        ['Av. España 1930 Municipalidad','Impuestos y tasas','','ARS',2065466,'Media',''],
+        ['Terreno J.F. Moreno Municipalidad','Impuestos y tasas','','ARS',684449,'Media',''],
+        ['Depto rabino Mitre Municipalidad','Impuestos y tasas','','ARS',650576.6,'Media',''],
+        ['Lote Potrerillos Municipalidad Luján','Impuestos y tasas','','ARS',522064.78,'Media',''],
+        ['Av. España 1930 ATM','Impuestos y tasas','','ARS',402636.2,'Media',''],
+        ['DAC / DAIA','Institucional','','ARS',7969279,'Media',''],
+        ['Proyecto Sojnut','Institucional','','ARS',7000000,'Alta','2026-08-15'],
+        ['Merkaz última cuota becas','Institucional','','ARS',475833,'Baja',''],
+        ['Club elementos','Institucional','','ARS',320466.5,'Baja',''],
+        ['Jardinería cementerio','Institucional','','ARS',200000,'Baja',''],
+        ['ACC Banco Macro','Financiera','2%','ARS',10000000,'Alta',''],
+        ['Proyecto Amijai','Institucional','Fee acumulado','USD',8100,'Alta','']]
+      .map(r=>({Acreedor:r[0],Categoria:r[1],Referencia:r[2],Moneda:r[3],Monto:r[4],Riesgo:r[5],Vencimiento:r[6]})),
+   flu:[['2025-07',11499500,860000,0,18934500,1130000,5299000,0,22278880],
+        ['2025-08',11750661,860000,0,3121600,1119200,720000,0,37468273],
+        ['2025-09',19631740,908000,7800000,26060700,2027500,1400000,0,32596511],
+        ['2025-10',10426420,908000,15102000,12144021,1895000,0,0,39367521],
+        ['2025-11',12005420,908000,2480625,5600000,3405000,2548000,0,23610348],
+        ['2025-12',11624500,908000,12407500,15740500,592000,1235500,0,27938584],
+        ['2026-01',8428110,950000,3150000,880000,2397000,0,10881140,20713744],
+        ['2026-02',8927088,1500000,143148,880000,0,3741950,11537640,17759208],
+        ['2026-03',11515017,1500000,13354000,6750250,2282700,400000,9497568,20313766],
+        ['2026-04',10418525,1500000,14648000,571000,1634350,5357000,4250999,20790354],
+        ['2026-05',11683006,1500000,9490100,450000,1959800,1730000,4500000,25278071],
+        ['2026-06',14533657,1500000,2100000,750000,2042150,1395000,14708171,36671389]]
+      .map(r=>({Mes:r[0],Cuotas:r[1],Alquileres:r[2],Cementerio:r[3],Donaciones:r[4],
+                'Benei Mitzva':r[5],'Otros ingresos':r[6],'Venta de USD':r[7],'Total egresos':r[8]})),
+   don:[['2025-09-15','Nix Valores',600000,'ARS','Transferencia','Acreditada','2025-09-15','Libre disponibilidad',''],
+        ['2025-09-18','Diana Segal',700000,'ARS','Transferencia','Acreditada','2025-09-18','Libre disponibilidad',''],
+        ['2025-09-25','Goldstein Automotores',5000000,'ARS','Transferencia','Acreditada','2025-09-25','Libre disponibilidad','Altas Fiestas'],
+        ['2025-09-26','Sur France',10000000,'ARS','Transferencia','Acreditada','2025-09-26','Libre disponibilidad','Altas Fiestas'],
+        ['2025-09-26','Marcos Castelazzo',1400000,'ARS','Transferencia','Acreditada','2025-09-26','Libre disponibilidad','Altas Fiestas'],
+        ['2025-09-26','Javerim Tech',500000,'ARS','Transferencia','Acreditada','2025-09-26','Libre disponibilidad','Altas Fiestas'],
+        ['2025-09-26','Sergio Birnbaum',79000,'ARS','Transferencia','Acreditada','2025-09-26','Libre disponibilidad','Altas Fiestas'],
+        ['2025-09-26','Alicia Levin',75000,'ARS','Transferencia','Acreditada','2025-09-26','Libre disponibilidad','Altas Fiestas'],
+        ['2025-10-09','Tito Portnoy',41400,'ARS','Transferencia','Acreditada','2025-10-09','Libre disponibilidad',''],
+        ['2025-10-15','Nix Valores',600000,'ARS','Transferencia','Acreditada','2025-10-15','Libre disponibilidad',''],
+        ['2025-10-17','Pablo Quesada',720000,'ARS','Transferencia','Acreditada','2025-10-17','Libre disponibilidad',''],
+        ['2025-12-12','Jakubson',5000,'USD','Transferencia','Acreditada','2025-12-12','Proyecto rabinico Amijai',''],
+        ['2025-12-12','Kahane, Mario',3000,'USD','Transferencia','Acreditada','2025-12-12','Proyecto rabinico Amijai',''],
+        ['2025-12-12','Naigus, Gabriel',1000,'USD','Transferencia','Acreditada','2025-12-12','Proyecto rabinico Amijai',''],
+        ['2025-12-12','Ostropolsky, Andres',1000,'USD','Transferencia','Acreditada','2025-12-12','Proyecto rabinico Amijai','']]
+     .map(r=>({Fecha:r[0],Donante:r[1],Monto:r[2],Moneda:r[3],Forma:r[4],Estado:r[5],Acred:r[6],Destino:r[7],Campania:r[8],Notas:''})),
+   pro:[{Proyecto:'Proyecto rabínico Amijai',pres:41900,fon:0,urg:'Alta',Notas:'Deuda más fee anual'},
+        {Proyecto:'Renovación del Shil',pres:150000,fon:0,urg:'Media',Notas:'Faseable por etapas'},
+        {Proyecto:'Mantenimiento de cementerios',pres:0,fon:0,urg:'Media',Notas:'Falta presupuesto'},
+        {Proyecto:'Fondo de becas de cuota social',pres:12761,fon:0,urg:'Media',Notas:'Costo anual de becas'},
+        {Proyecto:'Cancelación de deuda',pres:58908,fon:0,urg:'Alta',Notas:'Para levantar inhibiciones'},
+        {Proyecto:'Hueco operativo anual',pres:14705,fon:0,urg:'Alta',Notas:'Escenario conservador'}]
+  };
+}
+
+/* ═══════════ CARGA ═══════════ */
+async function cargar(){
+  el('setup').style.display='none'; el('app').style.display='none';
+  el('loading').style.display='block';
+  try{
+    if(DEMO){ D=datosDemo(); }
+    else{
+      const [rs,rp,rc,rd,rf,rn,rr]=await Promise.all(HOJAS.map(leerHoja));
+      const sup={}; tabla(rs,'Clave').forEach(o=>sup[o.Clave]=o.Valor);
+      D={
+        sup:{tipo_cambio:num(sup.tipo_cambio)||1450, cobrabilidad:num(sup.cobrabilidad)||75,
+             factor_esporadicos:num(sup.factor_esporadicos)||100, factor_egresos:num(sup.factor_egresos)||100,
+             deterioro_cuota:num(sup.deterioro_cuota)||0},
+        pad: tabla(rp,'Categoria').map(o=>({Categoria:o.Categoria,Cuotas:num(o.Cuotas),
+             nom:num(o['Valor nominal']), ef:num(o['Valor efectivo promedio']), nue:num(o['Valor nominal nuevo'])}))
+             .filter(o=>o.Cuotas>0),
+        caja:tabla(rc,'Concepto').map(o=>({Concepto:o.Concepto,Moneda:o.Moneda,Saldo:num(o.Saldo),
+             Tipo:o.Tipo,Notas:o.Notas})).filter(o=>o.Moneda),
+        deu: tabla(rd,'Acreedor').map(o=>({Acreedor:o.Acreedor,Categoria:o.Categoria,Referencia:o.Referencia,
+             Moneda:o.Moneda,Monto:num(o.Monto),Riesgo:o.Riesgo,Vencimiento:o.Vencimiento}))
+             .filter(o=>o.Moneda),
+        flu: tabla(rf,'Mes').filter(o=>/^\d{4}-\d{2}/.test(o.Mes)).map(o=>({Mes:o.Mes,
+             Cuotas:num(o.Cuotas),Alquileres:num(o.Alquileres),Cementerio:num(o.Cementerio),
+             Donaciones:num(o.Donaciones),'Benei Mitzva':num(o['Benei Mitzva']),
+             'Otros ingresos':num(o['Otros ingresos']),'Venta de USD':num(o['Venta de USD']),
+             'Total egresos':num(o['Total egresos'])})),
+        don: tabla(rn,'Fecha').map(o=>({Fecha:o.Fecha,Donante:o.Donante,Monto:num(o.Monto),
+             Moneda:o.Moneda,Forma:o['Forma de pago'],Estado:o.Estado,
+             Acred:o['Fecha de acreditacion']||o['Fecha de acreditación']||'',
+             Destino:o.Destino||'Libre disponibilidad',
+             Campania:o.Campania||o['Campaña']||'',Notas:o.Notas||''}))
+             .filter(o=>o.Monto>0 && /^\d{4}-\d{2}/.test(o.Fecha)),
+        pro: tabla(rr,'Proyecto').map(o=>({Proyecto:o.Proyecto,pres:num(o['Presupuesto USD']),
+             fon:num(o['Fondeado USD']),urg:o.Urgencia,Notas:o.Notas})).filter(o=>o.Proyecto)
+      };
+      if(!D.pad.length||!D.flu.length) throw new Error('La planilla se leyó pero está vacía o le faltan hojas. Verificá que tenga las hojas: '+HOJAS.join(', '));
+    }
+    el('loading').style.display='none'; el('app').style.display='block';
+    el('tc').value=D.sup.tipo_cambio;
+    render();
+  }catch(e){
+    el('loading').style.display='none';
+    el('setup').style.display='block';
+    el('err').innerHTML = e && e.entorno ? diagEntorno()
+      : (e.message||'No se pudo leer la planilla.');
+  }
+}
+
+/* ═══════════ FORMATO ═══════════ */
+const fm=(n,d=0)=>n==null||isNaN(n)?'—':n.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const $=n=>n==null||isNaN(n)?'—':'$'+fm(Math.round(n));
+const U=n=>n==null||isNaN(n)?'—':'US$'+fm(Math.round(n));
+const Mn=n=>n==null||isNaN(n)?'—':(n<0?'−':'')+'$'+fm(Math.abs(n)/1e6,1)+'M';
+const sum=a=>a.reduce((x,y)=>x+(y||0),0);
+const C={blue:'#1f4e79',teal:'#2e7d8f',red:'#b3261e',amber:'#c98a1f',green:'#0f7b4f',
+ grey:'#94a3b8',lred:'#e6a29c',plum:'#6b4c7a'};
+function mk(id,cfg){ if(charts[id])charts[id].destroy(); const c=el(id); if(c) charts[id]=new Chart(c,cfg); }
+const OPT={responsive:true,maintainAspectRatio:false,
+ plugins:{legend:{labels:{boxWidth:11,boxHeight:11,font:{size:11},padding:12}},
+  tooltip:{callbacks:{label:c=>` ${c.dataset.label||c.label}: ${$(c.parsed.y??c.parsed)}`}}},
+ scales:{y:{ticks:{font:{size:10},callback:v=>Mn(v)},grid:{color:'#eef1f4'}},
+  x:{ticks:{font:{size:10}},grid:{display:false}}}};
+const kpi=a=>a.map(([l,v,n,c])=>`<div class="kpi ${c||''}"><div class="lab">${l}</div><div class="val">${v}</div><div class="note">${n}</div></div>`).join('');
+
+/* ═══════════ PROYECCIÓN ═══════════ */
+const EGR_BASE=14463, EGR_AGUI=10828, AGUI=[4,10], YAMIM_MES=1, YAMIM=6000;
+const MP=['ago','sep','oct','nov','dic','ene','feb','mar','abr','may','jun','jul'];
+function perfiles(){
+  // Perfil estacional en USD tomado de los últimos 12 meses cargados, rotado a ago..jul
+  const tc=D.sup.tipo_cambio, f=D.flu.slice(-12);
+  const g=k=>f.map(x=>(x[k]||0)/tc);
+  const rot=a=>a.length===12?a.slice(1).concat(a.slice(0,1)):a;
+  return {cem:rot(g('Cementerio')),don:rot(g('Donaciones')),
+          bm:rot(g('Benei Mitzva')),otr:rot(g('Otros ingresos')),
+          alq:sum(g('Alquileres'))/Math.max(f.length,1)};
+}
+function proyectar(o){
+  const {tc,factEf,cob,espF,egrF,det,saldo0,P}=o;
+  const fu=factEf/tc; const R=[]; let caja=saldo0;
+  for(let i=0;i<12;i++){
+    const fr=1+(det/100)*((i+1)/12);
+    const cuotas=fu*(cob/100)*fr, alq=P.alq*fr;
+    const cem=(P.cem[i]||0)*espF, don=(P.don[i]||0)*espF,
+          bm=(P.bm[i]||0)*espF, otr=(P.otr[i]||0)*espF;
+    const ing=cuotas+alq+cem+don+bm+otr+(i===YAMIM_MES?YAMIM:0);
+    const egr=(EGR_BASE+(AGUI.includes(i)?EGR_AGUI:0))*egrF+(i===YAMIM_MES?YAMIM:0);
+    caja+=ing-egr;
+    R.push({mes:MP[i],cuotas,alq,cem,don,bm,otr,ing,egr,flujo:ing-egr,caja});
+  }
+  const T=k=>R.reduce((a,b)=>a+b[k],0);
+  return {R,tot:{cuotas:T('cuotas'),alq:T('alq'),cem:T('cem'),don:T('don'),bm:T('bm'),otr:T('otr'),
+    ing:T('ing'),egr:T('egr'),flujo:T('flujo')},cajaFin:R[11].caja,
+    min:Math.min(...R.map(x=>x.caja)),q:(R.find(x=>x.caja<0)||{}).mes||null};
+}
+
+/* ═══════════ RENDER ═══════════ */
+function render(){
+  const tc=Number(el('tc').value)||D.sup.tipo_cambio;
+  el('stamp').innerHTML=(DEMO?'<b style="color:var(--warn)">Datos de ejemplo</b> · ':'')+
+    'TC $'+fm(tc)+'/USD · actualizado '+new Date().toLocaleString('es-AR',{dateStyle:'short',timeStyle:'short'});
+
+  /* --- padrón --- */
+  const P=D.pad;
+  const nomAct=sum(P.map(r=>r.Cuotas*r.nom)), efAct=sum(P.map(r=>r.Cuotas*r.ef));
+  const nomSep=sum(P.map(r=>r.Cuotas*r.nue));
+  const efSepV=sum(P.map(r=>r.nom?r.Cuotas*r.nue*(r.ef/r.nom):0));
+  const nCuo=sum(P.map(r=>r.Cuotas));
+  const desc=nomAct?1-efAct/nomAct:0;
+
+  /* --- caja --- */
+  const cv=r=>r.Moneda==='USD'?r.Saldo*tc:r.Saldo;
+  const oper=D.caja.filter(r=>(r.Tipo||'').toLowerCase().startsWith('oper'));
+  const rese=D.caja.filter(r=>!(r.Tipo||'').toLowerCase().startsWith('oper'));
+  const cajaOp=sum(oper.map(cv)), cajaRes=sum(rese.map(cv));
+
+  /* --- deuda --- */
+  const dARS=sum(D.deu.filter(r=>r.Moneda==='ARS').map(r=>r.Monto));
+  const dUSD=sum(D.deu.filter(r=>r.Moneda==='USD').map(r=>r.Monto));
+  const deuTot=dARS+dUSD*tc;
+
+  /* --- flujo --- */
+  const F=D.flu;
+  const ingM=F.map(r=>r.Cuotas+r.Alquileres+r.Cementerio+r.Donaciones+r['Benei Mitzva']+r['Otros ingresos']+r['Venta de USD']);
+  const egrM=F.map(r=>r['Total egresos']);
+  const noRen=F.map(r=>r['Venta de USD']+r.Cementerio);
+  const fl=F.map((_,i)=>ingM[i]-egrM[i]);
+  const flR=F.map((_,i)=>ingM[i]-noRen[i]-egrM[i]);
+  const ult6=F.slice(-6);
+  const recM=sum(ult6.map(r=>r.Cuotas+r.Alquileres))/Math.max(ult6.length,1);
+  const egrProm=sum(ult6.map(r=>r['Total egresos']))/Math.max(ult6.length,1);
+  const defM=recM-egrProm;
+  const realCuo=sum(ult6.map(r=>r.Cuotas))/Math.max(ult6.length,1);
+  const cobImpl=efAct?realCuo/efAct*100:0;
+
+  /* ─── RESUMEN ─── */
+  el('ban-res').innerHTML=`<b>El ingreso recurrente cubre el ${fm(egrProm?recM/egrProm*100:0,0)}% de los gastos.</b>
+    Cuotas más alquiler promedian ${$(recM)} por mes contra un egreso de ${$(egrProm)}.
+    El resto se cubre vendiendo dólares y parcelas de cementerio, que no se reponen.`;
+  el('k-res').innerHTML=kpi([
+    ['Ingreso recurrente',$(recM),'cuotas + alquiler, por mes'],
+    ['Egreso promedio',$(egrProm),'últimos meses cargados'],
+    ['Déficit estructural',$(defM),'antes de ingresos extraordinarios','bad'],
+    ['Deuda total',Mn(deuTot),'pesos + dólares','bad'],
+    ['Liquidez operativa',Mn(cajaOp),(egrProm?fm(cajaOp/egrProm,1):'—')+' meses de gasto','warn'],
+    ['Posición neta',Mn(cajaOp-deuTot),'sin tocar la reserva',(cajaOp-deuTot)<0?'bad':'ok'],
+  ]);
+
+  const mix=[['Cuotas',sum(F.map(r=>r.Cuotas)),'rec'],['Alquileres',sum(F.map(r=>r.Alquileres)),'rec'],
+    ['Venta de dólares',sum(F.map(r=>r['Venta de USD'])),'nr'],['Cementerio',sum(F.map(r=>r.Cementerio)),'nr'],
+    ['Donaciones',sum(F.map(r=>r.Donaciones)),'don'],['Benei Mitzvá',sum(F.map(r=>r['Benei Mitzva'])),'act'],
+    ['Otros',sum(F.map(r=>r['Otros ingresos'])),'act']].filter(r=>r[1]>0).sort((a,b)=>b[1]-a[1]);
+  const tm=sum(mix.map(r=>r[1])), col={rec:C.green,nr:C.red,don:C.blue,act:C.grey};
+  const lab={rec:'Recurrente',nr:'No renovable',don:'Donaciones',act:'Actividades'};
+  mk('c-mix',{type:'doughnut',data:{labels:mix.map(r=>r[0]),
+    datasets:[{data:mix.map(r=>r[1]),backgroundColor:mix.map(r=>col[r[2]]),borderWidth:1,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'52%',plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>` ${c.label}: ${$(c.parsed)} (${fm(c.parsed/tm*100,1)}%)`}}}}});
+  const nr=sum(mix.filter(r=>r[2]==='nr').map(r=>r[1]));
+  el('t-mix').innerHTML='<thead><tr><th>Concepto</th><th>Tipo</th><th>Total</th><th>%</th></tr></thead><tbody>'+
+    mix.map(r=>`<tr><td>${r[0]}</td><td style="text-align:left"><span class="pill ${r[2]==='nr'?'alta':r[2]==='rec'?'baja':'tbd'}">${lab[r[2]]}</span></td>
+      <td>${$(r[1])}</td><td>${fm(r[1]/tm*100,1)}%</td></tr>`).join('')+
+    `<tr class="tot"><td>Total</td><td></td><td>${$(tm)}</td><td>100%</td></tr>
+     <tr class="tot"><td>De los cuales no renovables</td><td></td><td class="neg">${$(nr)}</td><td class="neg">${fm(nr/tm*100,1)}%</td></tr></tbody>`;
+
+  mk('c-flujo',{type:'line',data:{labels:F.map(r=>r.Mes),datasets:[
+    {label:'Flujo declarado',data:fl,borderColor:C.blue,backgroundColor:'rgba(31,78,121,.07)',fill:true,tension:.25,borderWidth:2,pointRadius:3},
+    {label:'Flujo sin ingresos no renovables',data:flR,borderColor:C.red,borderDash:[5,4],fill:false,tension:.25,borderWidth:2,pointRadius:3}]},options:OPT});
+
+  /* ─── LIQUIDEZ ─── */
+  el('k-liq').innerHTML=kpi([
+    ['Liquidez operativa',Mn(cajaOp),'disponible para la gestión'],
+    ['Reserva de emergencia',Mn(cajaRes),'no computa en gestión','warn'],
+    ['Meses de gasto cubiertos',egrProm?fm(cajaOp/egrProm,1):'—','con la liquidez operativa',cajaOp/egrProm<3?'bad':'warn'],
+    ['Cobertura de la deuda',deuTot?fm(cajaOp/deuTot*100,0)+'%':'—','caja sobre deuda total','bad'],
+  ]);
+  mk('c-ie',{type:'bar',data:{labels:F.map(r=>r.Mes),datasets:[
+    {label:'Ingresos',data:ingM,backgroundColor:C.teal},
+    {label:'Egresos',data:egrM,backgroundColor:C.lred}]},options:OPT});
+  el('t-flujo').innerHTML='<thead><tr><th>Mes</th><th>Ingresos</th><th>No renovable</th><th>Ingreso genuino</th><th>Egresos</th><th>Flujo</th><th>Flujo real</th></tr></thead><tbody>'+
+    F.map((r,i)=>`<tr><td>${r.Mes}</td><td>${$(ingM[i])}</td><td class="${noRen[i]?'neg':''}">${noRen[i]?$(noRen[i]):'—'}</td>
+      <td>${$(ingM[i]-noRen[i])}</td><td>${$(egrM[i])}</td>
+      <td class="${fl[i]<0?'neg':'pos'}">${$(fl[i])}</td><td class="${flR[i]<0?'neg':'pos'}">${$(flR[i])}</td></tr>`).join('')+
+    `<tr class="tot"><td>Total</td><td>${$(sum(ingM))}</td><td class="neg">${$(sum(noRen))}</td><td>${$(sum(ingM)-sum(noRen))}</td>
+     <td>${$(sum(egrM))}</td><td class="${sum(fl)<0?'neg':'pos'}">${$(sum(fl))}</td>
+     <td class="${sum(flR)<0?'neg':'pos'}">${$(sum(flR))}</td></tr></tbody>`;
+  el('t-caja').innerHTML='<thead><tr><th>Concepto</th><th>Moneda</th><th>Saldo</th><th>En pesos</th><th>Notas</th></tr></thead><tbody>'+
+    '<tr class="grp"><td colspan="5">Liquidez operativa</td></tr>'+
+    oper.map(r=>`<tr><td>${r.Concepto}</td><td>${r.Moneda}</td><td>${fm(r.Saldo)}</td><td>${$(cv(r))}</td>
+      <td style="text-align:left;color:var(--muted);font-size:12px">${r.Notas||''}</td></tr>`).join('')+
+    `<tr class="tot"><td>Subtotal</td><td colspan="2"></td><td>${$(cajaOp)}</td><td></td></tr>`+
+    (rese.length?'<tr class="grp"><td colspan="5">Reserva de emergencia</td></tr>'+
+      rese.map(r=>`<tr><td>${r.Concepto}</td><td>${r.Moneda}</td><td>${fm(r.Saldo)}</td><td>${$(cv(r))}</td>
+        <td style="text-align:left;color:var(--muted);font-size:12px">${r.Notas||''}</td></tr>`).join('')+
+      `<tr class="tot"><td>Total con reserva</td><td colspan="2"></td><td>${$(cajaOp+cajaRes)}</td><td></td></tr>`:'')+'</tbody>';
+
+  /* ─── DEUDA ─── */
+  el('k-deu').innerHTML=kpi([
+    ['Deuda en pesos',Mn(dARS),D.deu.filter(r=>r.Moneda==='ARS').length+' acreedores','bad'],
+    ['Deuda en dólares',U(dUSD),'al TC del encabezado','warn'],
+    ['Deuda consolidada',Mn(deuTot),'total','bad'],
+    ['Contra ingreso recurrente',recM?fm(deuTot/recM,1)+' meses':'—','de recaudación bruta','bad'],
+  ]);
+  const cats={}; D.deu.forEach(r=>{const c=r.Categoria||'Sin categoría';
+    cats[c]=(cats[c]||0)+(r.Moneda==='USD'?r.Monto*tc:r.Monto);});
+  const CE=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+  mk('c-deuda',{type:'doughnut',data:{labels:CE.map(c=>c[0]),
+    datasets:[{data:CE.map(c=>c[1]),backgroundColor:[C.plum,C.red,C.amber,C.blue,C.teal,C.grey],borderWidth:1,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'52%',
+      plugins:{legend:{position:'bottom',labels:{boxWidth:11,boxHeight:11,font:{size:11},padding:10}},
+       tooltip:{callbacks:{label:c=>` ${c.label}: ${$(c.parsed)} (${fm(c.parsed/deuTot*100,1)}%)`}}}}});
+  el('t-deucat').innerHTML='<thead><tr><th>Categoría</th><th>Monto</th><th>%</th></tr></thead><tbody>'+
+    CE.map(c=>`<tr><td>${c[0]}</td><td>${$(c[1])}</td><td>${fm(c[1]/deuTot*100,1)}%</td></tr>`).join('')+
+    `<tr class="tot"><td>Total</td><td>${$(deuTot)}</td><td>100%</td></tr></tbody>`;
+  const orden=[...D.deu].sort((a,b)=>(b.Moneda==='USD'?b.Monto*tc:b.Monto)-(a.Moneda==='USD'?a.Monto*tc:a.Monto));
+  el('t-deuda').innerHTML='<thead><tr><th>Acreedor</th><th>Categoría</th><th>Referencia</th><th>Monto</th><th>Riesgo</th><th>Vence</th></tr></thead><tbody>'+
+    orden.map(r=>`<tr><td>${r.Acreedor}</td><td style="text-align:left;font-size:12px;color:var(--muted)">${r.Categoria||''}</td>
+      <td style="text-align:left;font-size:12px;color:var(--muted)">${r.Referencia||'—'}</td>
+      <td>${r.Moneda==='USD'?U(r.Monto)+' <span style="color:var(--muted);font-size:11px">= '+$(r.Monto*tc)+'</span>':$(r.Monto)}</td>
+      <td><span class="pill ${(r.Riesgo||'tbd').toLowerCase()}">${r.Riesgo||'—'}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${r.Vencimiento||'—'}</td></tr>`).join('')+
+    `<tr class="tot"><td>Total</td><td colspan="2"></td><td>${$(deuTot)}</td><td colspan="2"></td></tr></tbody>`;
+
+  /* ─── CUOTAS ─── */
+  const cob=D.sup.cobrabilidad;
+  el('k-cuo').innerHTML=kpi([
+    ['Cuotas en padrón',fm(nCuo),'total de categorías'],
+    ['Facturación teórica',$(efAct),'por mes · '+U(efAct/tc)],
+    ['Cobrabilidad implícita',fm(cobImpl,1)+'%','recaudación sobre facturación','warn'],
+    ['Mora estimada',$(efAct-realCuo),U((efAct-realCuo)*12/tc)+' al año','bad'],
+    ['Cada 10 puntos valen',U(efAct*1.2/tc),'al año, sin invertir','ok'],
+    ['Con el aumento',$(efSepV),'facturación efectiva nueva','ok'],
+  ]);
+  el('t-padron').innerHTML='<thead><tr><th>Categoría</th><th>Cuotas</th><th>Nominal</th><th>Efectivo</th><th>Desc.</th><th>Nuevo</th><th>Aumento</th><th>Facturación</th></tr></thead><tbody>'+
+    P.map(r=>{const d=r.nom?1-r.ef/r.nom:0, v=r.nom?r.nue/r.nom-1:0;
+      return `<tr><td>${r.Categoria}</td><td>${fm(r.Cuotas)}</td><td>${$(r.nom)}</td><td>${$(r.ef)}</td>
+      <td class="${d>0?'neg':''}">${d?'−'+fm(d*100,1)+'%':'—'}</td><td>${$(r.nue)}</td>
+      <td class="${v>0?'pos':''}">${v?'+'+fm(v*100,1)+'%':'—'}</td><td>${$(r.Cuotas*r.ef)}</td></tr>`}).join('')+
+    `<tr class="tot"><td>Total</td><td>${fm(nCuo)}</td><td>${$(nomAct)}</td><td>${$(efAct)}</td>
+     <td class="neg">−${fm(desc*100,1)}%</td><td>${$(nomSep)}</td>
+     <td class="pos">${nomAct?'+'+fm((nomSep/nomAct-1)*100,1)+'%':'—'}</td><td>${$(efSepV)}</td></tr></tbody>`;
+  el('t-esc').innerHTML='<thead><tr><th>Cobrabilidad</th><th>Mensual</th><th>Anual</th><th>En dólares</th><th>Contra hoy</th></tr></thead><tbody>'+
+    [65,70,75,80,85,90].map(c=>{const m=efAct*c/100, dif=(m-realCuo)*12;
+      const act=Math.abs(c-cobImpl)<2.5;
+      return `<tr${act?' style="background:var(--soft);font-weight:600"':''}><td>${c}%${act?' <span class="pill baja">hoy</span>':''}</td>
+      <td>${$(m)}</td><td>${$(m*12)}</td><td>${U(m*12/tc)}</td>
+      <td class="${dif<0?'neg':'pos'}">${dif>=0?'+':''}${U(dif/tc)}</td></tr>`}).join('')+'</tbody>';
+  mk('c-cuotas',{type:'bar',data:{labels:F.map(r=>r.Mes),datasets:[
+    {label:'Recaudación por cuotas',data:F.map(r=>r.Cuotas),backgroundColor:C.blue,order:2},
+    {type:'line',label:'Facturación teórica',data:F.map(()=>efAct),borderColor:C.amber,borderDash:[5,4],borderWidth:2,pointRadius:0,fill:false,order:1},
+    {type:'line',label:'Egreso total',data:egrM,borderColor:C.red,borderWidth:2,pointRadius:3,fill:false,order:1}]},options:OPT});
+
+  /* ─── DONACIONES ─── */
+  const DON=(D.don||[]);
+  const anon=el('vista').value==='com';
+  const enUSD=d=>d.Moneda==='USD'?d.Monto:d.Monto/tc;
+  const ACR=DON.filter(d=>d.Estado==='Acreditada');
+  const PEND=DON.filter(d=>['En cartera','Recibida','Prometida'].includes(d.Estado));
+  const RECH=DON.filter(d=>d.Estado==='Rechazada');
+  const totAcr=sum(ACR.map(enUSD)), totPend=sum(PEND.map(enUSD));
+  const libre=sum(ACR.filter(d=>/libre/i.test(d.Destino)).map(enUSD));
+  const afect=totAcr-libre;
+  const anio=new Date().getFullYear();
+  const esteAnio=sum(ACR.filter(d=>String(d.Fecha).startsWith(anio)).map(enUSD));
+
+  el('ban-don').innerHTML= totAcr? `<b>Se registran ${U(totAcr)} acreditados y ${U(totPend)} pendientes de acreditar.</b>
+    De lo acreditado, ${U(libre)} son de libre disponibilidad y ${U(afect)} están afectados a un proyecto.
+    Lo afectado no puede usarse para gasto corriente aunque esté en la cuenta.`
+    : '<b>Todavía no hay donaciones cargadas.</b> Se cargan en la hoja Donaciones de la planilla.';
+
+  el('k-don').innerHTML=kpi([
+    ['Acreditado',U(totAcr),'plata efectivamente disponible','ok'],
+    ['Pendiente de acreditar',U(totPend),PEND.length+' movimientos sin cobrar',totPend>0?'warn':''],
+    ['Libre disponibilidad',U(libre),'lo único que cubre gasto corriente'],
+    ['Afectado a proyectos',U(afect),'no se puede reasignar','warn'],
+    ['Donantes distintos',fm(new Set(DON.map(d=>d.Donante)).size),'con al menos un aporte'],
+    ['Recibido en '+anio,U(esteAnio),'acreditado en el año en curso',esteAnio===0?'bad':''],
+  ]);
+
+  // por destino
+  const pd={}; ACR.forEach(d=>{pd[d.Destino]=(pd[d.Destino]||0)+enUSD(d);});
+  const PDE=Object.entries(pd).sort((a,b)=>b[1]-a[1]);
+  mk('c-dest',{type:'doughnut',data:{labels:PDE.map(x=>x[0]),
+    datasets:[{data:PDE.map(x=>x[1]),backgroundColor:[C.green,C.blue,C.teal,C.amber,C.plum,C.grey,C.red],borderWidth:1,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'52%',
+      plugins:{legend:{position:'bottom',labels:{boxWidth:11,boxHeight:11,font:{size:10},padding:8}},
+        tooltip:{callbacks:{label:c=>` ${c.label}: ${U(c.parsed)} (${fm(totAcr?c.parsed/totAcr*100:0,1)}%)`}}}}});
+  el('t-dest').innerHTML='<thead><tr><th>Destino</th><th>Acreditado</th><th>Pendiente</th><th>%</th></tr></thead><tbody>'+
+    PDE.map(x=>{const pe=sum(PEND.filter(d=>d.Destino===x[0]).map(enUSD));
+      return `<tr><td>${x[0]}</td><td>${U(x[1])}</td><td>${pe?U(pe):'—'}</td><td>${fm(totAcr?x[1]/totAcr*100:0,1)}%</td></tr>`}).join('')+
+    `<tr class="tot"><td>Total</td><td>${U(totAcr)}</td><td>${U(totPend)}</td><td>100%</td></tr></tbody>`;
+
+  // fondeo por proyecto: cruza donaciones afectadas contra presupuesto
+  const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  el('t-fondeo').innerHTML='<thead><tr><th>Proyecto</th><th>Presupuesto</th><th>Donado</th><th>Falta</th><th>% fondeo</th><th>Estado</th></tr></thead><tbody>'+
+    D.pro.filter(p=>!/hueco/i.test(p.Proyecto)).map(p=>{
+      const key=norm(p.Proyecto);
+      const rec=sum(ACR.filter(d=>{const k=norm(d.Destino);
+        return k && (key.includes(k.split(' ')[0])||k.includes(key.split(' ')[0])||
+          (/amijai/.test(k)&&/amijai/.test(key))||(/cementerio/.test(k)&&/cementerio/.test(key))||
+          (/shil/.test(k)&&/shil/.test(key))||(/beca/.test(k)&&/beca/.test(key)));}).map(enUSD));
+      const total=rec+p.fon, falta=Math.max(0,p.pres-total), pct=p.pres?total/p.pres*100:null;
+      const st=p.pres==null||!p.pres?['tbd','Sin presupuestar']:(pct>=90?['baja','Financiado']:pct>0?['media','Parcial']:['alta','No financiado']);
+      return `<tr><td><b>${p.Proyecto}</b></td><td>${p.pres?U(p.pres):'<span class="pill tbd">sin definir</span>'}</td>
+      <td>${U(total)}</td><td>${falta?U(falta):'—'}</td><td>${pct==null?'—':fm(pct,0)+'%'}</td>
+      <td><span class="pill ${st[0]}">${st[1]}</span></td></tr>`}).join('')+'</tbody>';
+
+  // calendario de acreditación
+  const cal={}; PEND.forEach(d=>{const m=String(d.Acred||d.Fecha).slice(0,7)||'sin fecha';
+    cal[m]=(cal[m]||0)+enUSD(d);});
+  const CAL=Object.entries(cal).sort();
+  el('t-cal').innerHTML= PEND.length?
+    '<thead><tr><th>Mes de cobro</th><th>Monto</th><th>Movimientos</th><th>Detalle</th></tr></thead><tbody>'+
+    CAL.map(([m,v])=>{const it=PEND.filter(d=>String(d.Acred||d.Fecha).slice(0,7)===m);
+      return `<tr><td>${m}</td><td>${U(v)}</td><td>${it.length}</td>
+      <td style="text-align:left;color:var(--muted);font-size:12px">${it.map(d=>(anon?'Donante':d.Donante)+' · '+d.Forma).join(' · ')}</td></tr>`}).join('')+
+    `<tr class="tot"><td>Total a acreditar</td><td>${U(totPend)}</td><td>${PEND.length}</td><td></td></tr></tbody>`
+    : '<tbody><tr><td style="color:var(--muted);font-size:13px">No hay donaciones pendientes de acreditar. Los cheques diferidos y las promesas aparecen acá con su mes de cobro.</td></tr></tbody>';
+
+  // serie temporal
+  const mes={}; DON.forEach(d=>{const m=String(d.Fecha).slice(0,7);
+    if(!mes[m])mes[m]={a:0,p:0};
+    if(d.Estado==='Acreditada')mes[m].a+=enUSD(d); else if(d.Estado!=='Rechazada')mes[m].p+=enUSD(d);});
+  const MS=Object.keys(mes).sort();
+  mk('c-dontime',{type:'bar',data:{labels:MS,datasets:[
+    {label:'Acreditado',data:MS.map(m=>mes[m].a),backgroundColor:C.green,stack:'d'},
+    {label:'Pendiente',data:MS.map(m=>mes[m].p),backgroundColor:C.amber,stack:'d'}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{boxWidth:11,boxHeight:11,font:{size:11},padding:12}},
+        tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${U(c.parsed.y)}`}}},
+      scales:{y:{stacked:true,ticks:{font:{size:10},callback:v=>'US$'+fm(v/1000,1)+'k'},grid:{color:'#eef1f4'}},
+        x:{stacked:true,ticks:{font:{size:10}},grid:{display:false}}}}});
+
+  // concentración
+  const pdo={}; DON.filter(d=>d.Estado!=='Rechazada').forEach(d=>{pdo[d.Donante]=(pdo[d.Donante]||0)+enUSD(d);});
+  const PDO=Object.entries(pdo).sort((a,b)=>b[1]-a[1]);
+  const totD=sum(PDO.map(x=>x[1]));
+  const top3=sum(PDO.slice(0,3).map(x=>x[1]));
+  const nom=(n,i)=>anon?('Donante '+(i+1)):n;
+  el('t-donantes').innerHTML='<thead><tr><th>Donante</th><th>Total</th><th>%</th><th>Aportes</th></tr></thead><tbody>'+
+    PDO.map((x,i)=>`<tr><td>${nom(x[0],i)}</td><td>${U(x[1])}</td><td>${fm(totD?x[1]/totD*100:0,1)}%</td>
+      <td>${DON.filter(d=>d.Donante===x[0]).length}</td></tr>`).join('')+
+    `<tr class="tot"><td>Total</td><td>${U(totD)}</td><td>100%</td><td>${DON.length}</td></tr>
+     <tr class="tot"><td>Los tres primeros</td><td>${U(top3)}</td>
+     <td class="${totD&&top3/totD>0.5?'neg':''}">${fm(totD?top3/totD*100:0,0)}%</td><td></td></tr></tbody>`;
+  mk('c-donantes',{type:'bar',data:{labels:PDO.slice(0,12).map((x,i)=>nom(x[0],i)),
+    datasets:[{label:'Donado',data:PDO.slice(0,12).map(x=>x[1]),backgroundColor:C.blue}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${U(c.parsed.x)}`}}},
+      scales:{x:{ticks:{font:{size:10},callback:v=>'US$'+fm(v/1000,1)+'k'},grid:{color:'#eef1f4'}},
+        y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+
+  const est={'Acreditada':'baja','En cartera':'media','Recibida':'media','Prometida':'media','Rechazada':'alta'};
+  el('t-don').innerHTML='<thead><tr><th>Fecha</th><th>Donante</th><th>Monto</th><th>En US$</th><th>Forma</th><th>Estado</th><th>Acredita</th><th>Destino</th></tr></thead><tbody>'+
+    [...DON].sort((a,b)=>String(b.Fecha).localeCompare(String(a.Fecha))).map((d,i)=>
+      `<tr><td>${d.Fecha}</td><td>${anon?'—':d.Donante}</td>
+      <td>${d.Moneda==='USD'?U(d.Monto):$(d.Monto)}</td><td>${U(enUSD(d))}</td>
+      <td style="font-size:12px;color:var(--muted)">${d.Forma||'—'}</td>
+      <td><span class="pill ${est[d.Estado]||'tbd'}">${d.Estado||'—'}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${d.Acred||'—'}</td>
+      <td style="text-align:left;font-size:12px">${d.Destino}</td></tr>`).join('')+
+    `<tr class="tot"><td>Total</td><td></td><td></td><td>${U(sum(DON.map(enUSD)))}</td><td colspan="4"></td></tr></tbody>`;
+
+  /* ─── PROYECCIÓN ─── */
+  const PF=perfiles();
+  const base={tc,factEf:efSepV||efAct,cob,espF:D.sup.factor_esporadicos/100,
+    egrF:D.sup.factor_egresos/100,det:D.sup.deterioro_cuota,saldo0:cajaOp/tc,P:PF};
+  const PR=proyectar(base);
+  const ESC={cons:{lab:'Conservador',o:{cob:cob-5,espF:base.espF*0.6,egrF:base.egrF*1.05},nota:'Donaciones 40% abajo y cobranza 5 puntos peor.'},
+             base:{lab:'Base',o:{},nota:'Se repite el comportamiento de los últimos doce meses.'},
+             opt:{lab:'Optimista',o:{cob:cob+10,espF:base.espF*1.2},nota:'Campaña exitosa y 10 puntos más de cobranza.'}};
+  const R={}; Object.entries(ESC).forEach(([k,v])=>R[k]=proyectar({...base,...v.o}));
+
+  el('k-pro').innerHTML=kpi([
+    ['Ingresos proyectados',U(PR.tot.ing),'doce meses'],
+    ['Egresos proyectados',U(PR.tot.egr),'incluye dos aguinaldos'],
+    ['Resultado',U(PR.tot.flujo),PR.tot.flujo<0?'déficit':'superávit',PR.tot.flujo<0?'bad':'ok'],
+    ['Caja al final',U(PR.cajaFin),'desde '+U(base.saldo0),PR.cajaFin<0?'bad':PR.cajaFin<20000?'warn':'ok'],
+    ['Mes más ajustado',PR.q||U(PR.min),PR.q?'la caja cruza el cero':'caja mínima',PR.q?'bad':'warn'],
+    ['Dependencia externa',fm(PR.tot.ing?(PR.tot.don+PR.tot.cem)/PR.tot.ing*100:0,0)+'%','donaciones y cementerio','warn'],
+  ]);
+  const uO={...OPT,plugins:{...OPT.plugins,tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${U(c.parsed.y)}`}}},
+    scales:{y:{stacked:true,ticks:{font:{size:10},callback:v=>'US$'+fm(v/1000,0)+'k'},grid:{color:'#eef1f4'}},
+     x:{stacked:true,ticks:{font:{size:10}},grid:{display:false}}}};
+  mk('c-proj',{data:{labels:MP,datasets:[
+    {type:'bar',label:'Cuotas + alquiler',data:PR.R.map(r=>r.cuotas+r.alq),backgroundColor:C.green,stack:'i'},
+    {type:'bar',label:'Cementerio',data:PR.R.map(r=>r.cem),backgroundColor:C.teal,stack:'i'},
+    {type:'bar',label:'Donaciones',data:PR.R.map(r=>r.don),backgroundColor:C.blue,stack:'i'},
+    {type:'bar',label:'Otros',data:PR.R.map(r=>r.bm+r.otr),backgroundColor:C.grey,stack:'i'},
+    {type:'line',label:'Egresos',data:PR.R.map(r=>r.egr),borderColor:C.red,borderWidth:2,pointRadius:3,fill:false}]},options:uO});
+  mk('c-caja',{type:'line',data:{labels:MP,datasets:[
+    {label:'Base',data:R.base.R.map(r=>r.caja),borderColor:C.blue,backgroundColor:'rgba(31,78,121,.07)',fill:true,tension:.2,borderWidth:2,pointRadius:3},
+    {label:'Conservador',data:R.cons.R.map(r=>r.caja),borderColor:C.red,borderDash:[5,4],borderWidth:2,pointRadius:0,fill:false},
+    {label:'Optimista',data:R.opt.R.map(r=>r.caja),borderColor:C.green,borderDash:[5,4],borderWidth:2,pointRadius:0,fill:false}]},
+    options:{...uO,scales:{y:{ticks:{font:{size:10},callback:v=>'US$'+fm(v/1000,0)+'k'},grid:{color:'#eef1f4'}},x:{grid:{display:false},ticks:{font:{size:10}}}}}});
+  el('t-proj').innerHTML='<thead><tr><th>Mes</th><th>Cuotas+alq.</th><th>Cementerio</th><th>Donaciones</th><th>Otros</th><th>Ingresos</th><th>Egresos</th><th>Flujo</th><th>Caja</th></tr></thead><tbody>'+
+    PR.R.map(r=>`<tr><td>${r.mes}</td><td>${U(r.cuotas+r.alq)}</td><td>${U(r.cem)}</td><td>${U(r.don)}</td>
+      <td>${U(r.bm+r.otr)}</td><td>${U(r.ing)}</td><td>${U(r.egr)}</td>
+      <td class="${r.flujo<0?'neg':'pos'}">${U(r.flujo)}</td><td class="${r.caja<0?'neg':''}">${U(r.caja)}</td></tr>`).join('')+
+    `<tr class="tot"><td>Total</td><td>${U(PR.tot.cuotas+PR.tot.alq)}</td><td>${U(PR.tot.cem)}</td><td>${U(PR.tot.don)}</td>
+     <td>${U(PR.tot.bm+PR.tot.otr)}</td><td>${U(PR.tot.ing)}</td><td>${U(PR.tot.egr)}</td>
+     <td class="${PR.tot.flujo<0?'neg':'pos'}">${U(PR.tot.flujo)}</td><td>${U(PR.cajaFin)}</td></tr></tbody>`;
+  el('t-escen').innerHTML='<thead><tr><th>Escenario</th><th>Ingresos</th><th>Egresos</th><th>Resultado</th><th>Caja final</th><th>Supuesto</th></tr></thead><tbody>'+
+    Object.entries(ESC).map(([k,v])=>`<tr><td><b>${v.lab}</b></td><td>${U(R[k].tot.ing)}</td><td>${U(R[k].tot.egr)}</td>
+      <td class="${R[k].tot.flujo<0?'neg':'pos'}"><b>${U(R[k].tot.flujo)}</b></td>
+      <td class="${R[k].cajaFin<0?'neg':''}">${U(R[k].cajaFin)}</td>
+      <td style="text-align:left;color:var(--muted);font-size:12px">${v.nota}</td></tr>`).join('')+
+    `<tr class="tot"><td>Diferencia optimista − conservador</td><td>${U(R.opt.tot.ing-R.cons.tot.ing)}</td><td>—</td>
+     <td>${U(R.opt.tot.flujo-R.cons.tot.flujo)}</td><td>—</td>
+     <td style="text-align:left;color:var(--muted);font-size:12px">Casi todo son donaciones y cobranza</td></tr></tbody>`;
+
+  /* ─── PROYECTOS ─── */
+  const hueco=Math.max(0,-R.cons.tot.flujo);
+  const PRO=D.pro.map(p=>({...p, pres:/hueco/i.test(p.Proyecto)?Math.round(hueco):p.pres}));
+  const totP=sum(PRO.map(p=>Math.max(0,p.pres-p.fon)));
+  el('t-proy').innerHTML='<thead><tr><th>Destino</th><th>Presupuesto</th><th>Fondeado</th><th>Falta</th><th>% fondeo</th><th>Urgencia</th><th>Notas</th></tr></thead><tbody>'+
+    PRO.map(p=>{const falta=Math.max(0,p.pres-p.fon), pct=p.pres?p.fon/p.pres*100:null;
+      return `<tr><td><b>${p.Proyecto}</b></td><td>${p.pres?U(p.pres):'<span class="pill tbd">sin definir</span>'}</td>
+      <td>${U(p.fon)}</td><td>${falta?U(falta):'—'}</td><td>${pct==null?'—':fm(pct,0)+'%'}</td>
+      <td><span class="pill ${(p.urg||'tbd').toLowerCase()}">${p.urg||'—'}</span></td>
+      <td style="text-align:left;color:var(--muted);font-size:12px">${p.Notas||''}</td></tr>`}).join('')+
+    `<tr class="tot"><td>Necesidad total de financiamiento</td><td colspan="2"></td><td>${U(totP)}</td>
+     <td colspan="2"></td><td style="text-align:left;color:var(--muted);font-size:12px">${$(totP*tc)}</td></tr></tbody>`;
+}
+
+/* ═══════════ EVENTOS ═══════════ */
+document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); el('p-'+b.dataset.p).classList.add('on');
+  Object.values(charts).forEach(c=>{try{c.resize()}catch(e){}});
+}));
+el('tc').addEventListener('input',()=>render());
+el('vista').addEventListener('change',()=>render());
+el('b-reload').addEventListener('click',cargar);
+el('b-config').addEventListener('click',()=>{el('app').style.display='none';el('setup').style.display='block';
+  el('url-in').value=localStorage.getItem(LS)||'';el('err').textContent='';});
+el('b-sheet').addEventListener('click',()=>{
+  if(SHEET_ID) window.open('https://docs.google.com/spreadsheets/d/'+SHEET_ID,'_blank');
+  else alert('Todavía no hay una planilla conectada.');});
+el('b-conn').addEventListener('click',()=>{
+  const id=idDesdeUrl(el('url-in').value);
+  if(!id){el('err').textContent='No reconozco ese enlace. Tiene que ser el de una planilla de Google Sheets.';return;}
+  SHEET_ID=id; DEMO=false; localStorage.setItem(LS,el('url-in').value); cargar();});
+el('b-demo').addEventListener('click',()=>{DEMO=true;SHEET_ID=null;cargar();});
+el('url-in').addEventListener('keydown',e=>{if(e.key==='Enter')el('b-conn').click();});
+
+/* ═══════════ ARRANQUE ═══════════ */
+(function(){
+  // Aviso preventivo: si el entorno no permite leer de internet, decirlo antes de intentar.
+  const local = location.protocol==='file:';
+  const dentro = window.self!==window.top;
+  if(local||dentro){
+    const a=el('aviso'); a.style.display='block';
+    a.innerHTML = local
+      ? `<b>Ojo:</b> el tablero está abierto como archivo local, y así no puede leer Google Sheets —
+         los navegadores lo bloquean. Para usarlo de verdad, subí <code>index.html</code> a
+         <b>app.netlify.com/drop</b> y abrilo desde la dirección que te da.
+         Mientras tanto podés ver cómo queda con «Ver con datos de ejemplo».`
+      : `<b>Ojo:</b> el tablero está abierto dentro de otra aplicación, y ese visor bloquea las conexiones
+         externas. Para usarlo de verdad, subí <code>index.html</code> a <b>app.netlify.com/drop</b> y abrilo
+         en una pestaña normal del navegador. Mientras tanto podés ver cómo queda con «Ver con datos de ejemplo».`;
+  }
+  const g=localStorage.getItem(LS);
+  const q=new URLSearchParams(location.search).get('sheet');
+  const id=idDesdeUrl(q||g||'');
+  if(id){ SHEET_ID=id; el('url-in').value=q||g||''; cargar(); }
+  else { el('setup').style.display='block'; }
+})();
+</script>
+</body>
+</html>
