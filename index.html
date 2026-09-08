@@ -334,6 +334,31 @@ function tabla(rows, headerHint){
 // Lee un campo probando varias grafías posibles del encabezado.
 const campo=(o,...ns)=>{ for(const n of ns){ if(o[n]!==undefined&&o[n]!=='') return o[n];
   const k=nk(n); if(o[k]!==undefined&&o[k]!=='') return o[k]; } return ''; };
+
+// ── Lectura por POSICIÓN de columna ──────────────────────────────────────────
+// Google Sheets infiere un tipo por columna y, en las columnas numéricas, devuelve
+// vacío el texto del encabezado. Por eso no se puede depender de los nombres:
+// se ubica la fila de encabezado por la primera columna (que siempre es texto)
+// y de ahí en adelante se lee cada campo por su número de columna.
+function filas(rows, marcaCol0){
+  const marca=nk(marcaCol0);
+  let hi=rows.findIndex(r=>nk(r&&r[0])===marca);
+  if(hi<0){
+    // Sin encabezado reconocible: arranca en la primera fila con 3+ celdas con contenido
+    hi=rows.findIndex(r=>r&&r.filter(c=>String(c).trim()).length>=3);
+    if(hi<0) return [];
+    hi--; // esa ya es una fila de datos
+  }
+  const out=[];
+  for(let i=hi+1;i<rows.length;i++){
+    const r=rows[i]||[];
+    const p=String(r[0]||'').trim();
+    if(!p || esTotal(p) || p.length>60) continue;
+    out.push(r.map(c=>c===undefined?'':String(c).trim()));
+  }
+  return out;
+}
+const col=(r,i)=>r[i]!==undefined?r[i]:'';   // celda por índice, tolerante a filas cortas
 async function leerHoja(hoja){
   // headers=0 evita que gviz consuma filas como encabezado: devuelve la hoja tal cual está.
   const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=0&sheet=${encodeURIComponent(hoja)}`;
@@ -450,41 +475,37 @@ async function cargar(){
     if(DEMO){ D=datosDemo(); }
     else{
       const [rs,rp,rc,rd,rf,rn,rr]=await Promise.all(HOJAS.map(leerHoja));
-      const sup={}; tabla(rs,'Clave').forEach(o=>sup[o.Clave]=o.Valor);
+      // Columnas por posición, según el orden de la plantilla.
+      const sup={}; filas(rs,'Clave').forEach(r=>{ if(col(r,0)) sup[nk(col(r,0))]=col(r,2); });
       D={
-        sup:{tipo_cambio:num(sup.tipo_cambio)||1450, cobrabilidad:num(sup.cobrabilidad)||75,
-             factor_esporadicos:num(sup.factor_esporadicos)||100, factor_egresos:num(sup.factor_egresos)||100,
-             deterioro_cuota:num(sup.deterioro_cuota)||0},
-        pad: tabla(rp,'Categoria').map(o=>({Categoria:campo(o,'Categoria','Categoría'),
-             Cuotas:num(campo(o,'Cuotas')), nom:num(campo(o,'Valor nominal')),
-             ef:num(campo(o,'Valor efectivo promedio')), nue:num(campo(o,'Valor nominal nuevo'))}))
-             .filter(o=>o.Cuotas>0),
-        caja:tabla(rc,'Concepto').map(o=>({Concepto:campo(o,'Concepto'),
-             Moneda:(campo(o,'Moneda')||'ARS').toUpperCase(),Saldo:num(campo(o,'Saldo')),
-             Tipo:campo(o,'Tipo'),Notas:campo(o,'Notas')})).filter(o=>o.Concepto&&o.Saldo!==0),
-        deu: tabla(rd,'Acreedor').map(o=>({Acreedor:campo(o,'Acreedor'),
-             Categoria:campo(o,'Categoria','Categoría'),Referencia:campo(o,'Referencia'),
-             Moneda:(campo(o,'Moneda')||'ARS').toUpperCase(),Monto:num(campo(o,'Monto')),
-             Riesgo:campo(o,'Riesgo'),Vencimiento:campo(o,'Vencimiento')}))
-             .filter(o=>o.Acreedor),
-        flu: tabla(rf,'Mes').map(o=>({Mes:mes(campo(o,'Mes')),
-             Cuotas:num(campo(o,'Cuotas')),Alquileres:num(campo(o,'Alquileres')),
-             Cementerio:num(campo(o,'Cementerio')),Donaciones:num(campo(o,'Donaciones')),
-             'Benei Mitzva':num(campo(o,'Benei Mitzva','Benei Mitzvá')),
-             'Otros ingresos':num(campo(o,'Otros ingresos')),
-             'Venta de USD':num(campo(o,'Venta de USD')),
-             'Total egresos':num(campo(o,'Total egresos'))})).filter(o=>o.Mes),
-        don: tabla(rn,'Fecha').map(o=>({Fecha:mes(campo(o,'Fecha')),
-             Donante:campo(o,'Donante'),Monto:num(campo(o,'Monto')),
-             Moneda:(campo(o,'Moneda')||'ARS').toUpperCase(),
-             Forma:campo(o,'Forma de pago'),Estado:campo(o,'Estado'),
-             Acred:mes(campo(o,'Fecha de acreditacion','Fecha de acreditación')),
-             Destino:campo(o,'Destino')||'Libre disponibilidad',
-             Campania:campo(o,'Campania','Campaña'),Notas:campo(o,'Notas')}))
+        sup:{tipo_cambio:num(sup['tipo_cambio'])||1450, cobrabilidad:num(sup['cobrabilidad'])||75,
+             factor_esporadicos:num(sup['factor_esporadicos'])||100, factor_egresos:num(sup['factor_egresos'])||100,
+             deterioro_cuota:num(sup['deterioro_cuota'])||0},
+        // Padron: Categoria | Cuotas | Nominal | Efectivo | Nominal nuevo
+        pad: filas(rp,'Categoria').map(r=>({Categoria:col(r,0),Cuotas:num(col(r,1)),
+             nom:num(col(r,2)), ef:num(col(r,3)), nue:num(col(r,4))})).filter(o=>o.Cuotas>0),
+        // Caja: Concepto | Moneda | Saldo | Tipo | Fecha corte | Notas
+        caja:filas(rc,'Concepto').map(r=>({Concepto:col(r,0),
+             Moneda:(col(r,1)||'ARS').toUpperCase(),Saldo:num(col(r,2)),
+             Tipo:col(r,3),Notas:col(r,5)})).filter(o=>o.Concepto),
+        // Deuda: Acreedor | Categoria | Referencia | Moneda | Monto | Riesgo | Vencimiento
+        deu: filas(rd,'Acreedor').map(r=>({Acreedor:col(r,0),Categoria:col(r,1),
+             Referencia:col(r,2),Moneda:(col(r,3)||'ARS').toUpperCase(),
+             Monto:num(col(r,4)),Riesgo:col(r,5),Vencimiento:col(r,6)})).filter(o=>o.Acreedor),
+        // Flujo: Mes | Cuotas | Alquileres | Cementerio | Donaciones | BM | Otros | Venta USD | Egresos
+        flu: filas(rf,'Mes').map(r=>({Mes:mes(col(r,0)),Cuotas:num(col(r,1)),
+             Alquileres:num(col(r,2)),Cementerio:num(col(r,3)),Donaciones:num(col(r,4)),
+             'Benei Mitzva':num(col(r,5)),'Otros ingresos':num(col(r,6)),
+             'Venta de USD':num(col(r,7)),'Total egresos':num(col(r,8))})).filter(o=>o.Mes),
+        // Donaciones: Fecha | Donante | Monto | Moneda | Forma | Estado | Acreditacion | Destino | Campania | Notas
+        don: filas(rn,'Fecha').map(r=>({Fecha:mes(col(r,0)),Donante:col(r,1),
+             Monto:num(col(r,2)),Moneda:(col(r,3)||'ARS').toUpperCase(),
+             Forma:col(r,4),Estado:col(r,5),Acred:mes(col(r,6)),
+             Destino:col(r,7)||'Libre disponibilidad',Campania:col(r,8),Notas:col(r,9)}))
              .filter(o=>o.Monto>0 && o.Fecha),
-        pro: tabla(rr,'Proyecto').map(o=>({Proyecto:campo(o,'Proyecto'),
-             pres:num(campo(o,'Presupuesto USD')),fon:num(campo(o,'Fondeado USD')),
-             urg:campo(o,'Urgencia'),Notas:campo(o,'Notas')})).filter(o=>o.Proyecto)
+        // Proyectos: Proyecto | Presupuesto USD | Fondeado USD | Urgencia | Faseable | Notas
+        pro: filas(rr,'Proyecto').map(r=>({Proyecto:col(r,0),pres:num(col(r,1)),
+             fon:num(col(r,2)),urg:col(r,3),Notas:col(r,5)})).filter(o=>o.Proyecto)
       };
       if(!D.pad.length||!D.flu.length){
         const crudo={Supuestos:rs,Padron:rp,Caja:rc,Deuda:rd,Flujo:rf,Donaciones:rn,Proyectos:rr};
@@ -499,8 +520,11 @@ async function cargar(){
            1. Que el archivo esté <b>convertido a Google Sheets</b> y no sea un .xlsx guardado en Drive.
               Abrilo y fijate: si arriba del nombre dice «XLSX», usá Archivo → Guardar como Hojas de cálculo de Google.<br>
            2. Que los nombres de las hojas sean exactamente: <code>${HOJAS.join('</code>, <code>')}</code><br>
-           3. Que la hoja Padron tenga la columna <b>Categoria</b> y la hoja Flujo la columna <b>Mes</b>,
-              escritas igual que en la plantilla.`;
+           3. Que no se hayan movido ni borrado columnas: el tablero las lee por posición,
+              en el mismo orden que la plantilla original.<br>
+           4. Que la primera columna de cada hoja conserve su encabezado
+              (<code>Categoria</code>, <code>Concepto</code>, <code>Acreedor</code>, <code>Mes</code>,
+              <code>Fecha</code>, <code>Proyecto</code>).`;
         throw e;
       }
     }
