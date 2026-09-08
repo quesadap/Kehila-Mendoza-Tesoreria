@@ -285,11 +285,35 @@ const num=v=>{
   const s=String(v).replace(/[$\s]/g,'').replace(/\.(?=\d{3}\b)/g,'').replace(',','.');
   const n=parseFloat(s); return isNaN(n)?0:n;
 };
+// Google Sheets devuelve las fechas en varios formatos según cómo se cargó la celda.
+// Esta función normaliza todo a "AAAA-MM" para poder agrupar por mes.
+function mes(v){
+  if(v==null) return '';
+  const s=String(v).trim();
+  if(!s) return '';
+  let m;
+  // gviz manda las fechas reales como Date(2025,6,1) — el mes viene 0-indexado
+  if(m=s.match(/^Date\((\d{4}),(\d{1,2}),?/)) return m[1]+'-'+String(+m[2]+1).padStart(2,'0');
+  // 2025-07 o 2025-07-01
+  if(m=s.match(/^(\d{4})-(\d{1,2})/)) return m[1]+'-'+m[2].padStart(2,'0');
+  // 2025/07/01
+  if(m=s.match(/^(\d{4})\/(\d{1,2})/)) return m[1]+'-'+m[2].padStart(2,'0');
+  // 01/07/2025 o 1-7-2025 — formato argentino, día primero
+  if(m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/)) return m[3]+'-'+m[2].padStart(2,'0');
+  // texto de fecha que el navegador entienda
+  const d=new Date(s);
+  if(!isNaN(d)) return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  return '';
+}
 // Filas que la planilla usa para totales o comentarios, y que no son datos.
 const esTotal = s => /^(total|totales|subtotal|suma|recordá|recorda|la columna|nota)/i.test(String(s||'').trim());
 // Convierte filas crudas en objetos, usando la fila de encabezado que encuentre.
+// Quita acentos y normaliza para comparar nombres de columna con tolerancia.
+const nk = s => String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 function tabla(rows, headerHint){
-  let hi=rows.findIndex(r=>r.some(c=>String(c).trim().toLowerCase()===headerHint.toLowerCase()));
+  const hint=nk(headerHint);
+  let hi=rows.findIndex(r=>r.some(c=>nk(c)===hint));
+  if(hi<0) hi=rows.findIndex(r=>r.filter(c=>String(c).trim()).length>=3); // fallback: primera fila con varias columnas
   if(hi<0) hi=0;
   const H=rows[hi].map(x=>String(x).trim());
   const out=[];
@@ -298,13 +322,21 @@ function tabla(rows, headerHint){
     const p=String(r&&r[0]||'').trim();
     if(!p || esTotal(p)) continue;          // sin etiqueta, o es una fila de total
     if(p.length>60) continue;                // texto largo: es una aclaración, no un dato
-    const o={}; H.forEach((h,j)=>{ if(h) o[h]=r[j]!==undefined?String(r[j]).trim():''; });
+    const o={};
+    H.forEach((h,j)=>{ if(h){
+      const v=r[j]!==undefined?String(r[j]).trim():'';
+      o[h]=v; o[nk(h)]=v;                    // acceso por nombre exacto y por nombre normalizado
+    }});
     out.push(o);
   }
   return out;
 }
+// Lee un campo probando varias grafías posibles del encabezado.
+const campo=(o,...ns)=>{ for(const n of ns){ if(o[n]!==undefined&&o[n]!=='') return o[n];
+  const k=nk(n); if(o[k]!==undefined&&o[k]!=='') return o[k]; } return ''; };
 async function leerHoja(hoja){
-  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(hoja)}`;
+  // headers=0 evita que gviz consuma filas como encabezado: devuelve la hoja tal cual está.
+  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=0&sheet=${encodeURIComponent(hoja)}`;
   let r;
   try{ r=await fetch(url,{cache:'no-store'}); }
   catch(e){
@@ -423,29 +455,54 @@ async function cargar(){
         sup:{tipo_cambio:num(sup.tipo_cambio)||1450, cobrabilidad:num(sup.cobrabilidad)||75,
              factor_esporadicos:num(sup.factor_esporadicos)||100, factor_egresos:num(sup.factor_egresos)||100,
              deterioro_cuota:num(sup.deterioro_cuota)||0},
-        pad: tabla(rp,'Categoria').map(o=>({Categoria:o.Categoria,Cuotas:num(o.Cuotas),
-             nom:num(o['Valor nominal']), ef:num(o['Valor efectivo promedio']), nue:num(o['Valor nominal nuevo'])}))
+        pad: tabla(rp,'Categoria').map(o=>({Categoria:campo(o,'Categoria','Categoría'),
+             Cuotas:num(campo(o,'Cuotas')), nom:num(campo(o,'Valor nominal')),
+             ef:num(campo(o,'Valor efectivo promedio')), nue:num(campo(o,'Valor nominal nuevo'))}))
              .filter(o=>o.Cuotas>0),
-        caja:tabla(rc,'Concepto').map(o=>({Concepto:o.Concepto,Moneda:o.Moneda,Saldo:num(o.Saldo),
-             Tipo:o.Tipo,Notas:o.Notas})).filter(o=>o.Moneda),
-        deu: tabla(rd,'Acreedor').map(o=>({Acreedor:o.Acreedor,Categoria:o.Categoria,Referencia:o.Referencia,
-             Moneda:o.Moneda,Monto:num(o.Monto),Riesgo:o.Riesgo,Vencimiento:o.Vencimiento}))
-             .filter(o=>o.Moneda),
-        flu: tabla(rf,'Mes').filter(o=>/^\d{4}-\d{2}/.test(o.Mes)).map(o=>({Mes:o.Mes,
-             Cuotas:num(o.Cuotas),Alquileres:num(o.Alquileres),Cementerio:num(o.Cementerio),
-             Donaciones:num(o.Donaciones),'Benei Mitzva':num(o['Benei Mitzva']),
-             'Otros ingresos':num(o['Otros ingresos']),'Venta de USD':num(o['Venta de USD']),
-             'Total egresos':num(o['Total egresos'])})),
-        don: tabla(rn,'Fecha').map(o=>({Fecha:o.Fecha,Donante:o.Donante,Monto:num(o.Monto),
-             Moneda:o.Moneda,Forma:o['Forma de pago'],Estado:o.Estado,
-             Acred:o['Fecha de acreditacion']||o['Fecha de acreditación']||'',
-             Destino:o.Destino||'Libre disponibilidad',
-             Campania:o.Campania||o['Campaña']||'',Notas:o.Notas||''}))
-             .filter(o=>o.Monto>0 && /^\d{4}-\d{2}/.test(o.Fecha)),
-        pro: tabla(rr,'Proyecto').map(o=>({Proyecto:o.Proyecto,pres:num(o['Presupuesto USD']),
-             fon:num(o['Fondeado USD']),urg:o.Urgencia,Notas:o.Notas})).filter(o=>o.Proyecto)
+        caja:tabla(rc,'Concepto').map(o=>({Concepto:campo(o,'Concepto'),
+             Moneda:(campo(o,'Moneda')||'ARS').toUpperCase(),Saldo:num(campo(o,'Saldo')),
+             Tipo:campo(o,'Tipo'),Notas:campo(o,'Notas')})).filter(o=>o.Concepto&&o.Saldo!==0),
+        deu: tabla(rd,'Acreedor').map(o=>({Acreedor:campo(o,'Acreedor'),
+             Categoria:campo(o,'Categoria','Categoría'),Referencia:campo(o,'Referencia'),
+             Moneda:(campo(o,'Moneda')||'ARS').toUpperCase(),Monto:num(campo(o,'Monto')),
+             Riesgo:campo(o,'Riesgo'),Vencimiento:campo(o,'Vencimiento')}))
+             .filter(o=>o.Acreedor),
+        flu: tabla(rf,'Mes').map(o=>({Mes:mes(campo(o,'Mes')),
+             Cuotas:num(campo(o,'Cuotas')),Alquileres:num(campo(o,'Alquileres')),
+             Cementerio:num(campo(o,'Cementerio')),Donaciones:num(campo(o,'Donaciones')),
+             'Benei Mitzva':num(campo(o,'Benei Mitzva','Benei Mitzvá')),
+             'Otros ingresos':num(campo(o,'Otros ingresos')),
+             'Venta de USD':num(campo(o,'Venta de USD')),
+             'Total egresos':num(campo(o,'Total egresos'))})).filter(o=>o.Mes),
+        don: tabla(rn,'Fecha').map(o=>({Fecha:mes(campo(o,'Fecha')),
+             Donante:campo(o,'Donante'),Monto:num(campo(o,'Monto')),
+             Moneda:(campo(o,'Moneda')||'ARS').toUpperCase(),
+             Forma:campo(o,'Forma de pago'),Estado:campo(o,'Estado'),
+             Acred:mes(campo(o,'Fecha de acreditacion','Fecha de acreditación')),
+             Destino:campo(o,'Destino')||'Libre disponibilidad',
+             Campania:campo(o,'Campania','Campaña'),Notas:campo(o,'Notas')}))
+             .filter(o=>o.Monto>0 && o.Fecha),
+        pro: tabla(rr,'Proyecto').map(o=>({Proyecto:campo(o,'Proyecto'),
+             pres:num(campo(o,'Presupuesto USD')),fon:num(campo(o,'Fondeado USD')),
+             urg:campo(o,'Urgencia'),Notas:campo(o,'Notas')})).filter(o=>o.Proyecto)
       };
-      if(!D.pad.length||!D.flu.length) throw new Error('La planilla se leyó pero está vacía o le faltan hojas. Verificá que tenga las hojas: '+HOJAS.join(', '));
+      if(!D.pad.length||!D.flu.length){
+        const crudo={Supuestos:rs,Padron:rp,Caja:rc,Deuda:rd,Flujo:rf,Donaciones:rn,Proyectos:rr};
+        const det=Object.entries({Padron:D.pad,Caja:D.caja,Deuda:D.deu,Flujo:D.flu,Donaciones:D.don,Proyectos:D.pro})
+          .map(([n,v])=>`<tr><td style="padding:2px 10px 2px 0">${n}</td>
+            <td style="padding:2px 10px 2px 0">${(crudo[n]||[]).length} filas en la hoja</td>
+            <td style="padding:2px 0"><b>${v.length} interpretadas</b></td></tr>`).join('');
+        const e=new Error(''); e.detalle=
+          `<b>La planilla se leyó, pero no pude interpretar los datos.</b>
+           <table style="margin:8px 0;font-size:12px;border-collapse:collapse">${det}</table>
+           <b>Qué revisar, en este orden:</b><br>
+           1. Que el archivo esté <b>convertido a Google Sheets</b> y no sea un .xlsx guardado en Drive.
+              Abrilo y fijate: si arriba del nombre dice «XLSX», usá Archivo → Guardar como Hojas de cálculo de Google.<br>
+           2. Que los nombres de las hojas sean exactamente: <code>${HOJAS.join('</code>, <code>')}</code><br>
+           3. Que la hoja Padron tenga la columna <b>Categoria</b> y la hoja Flujo la columna <b>Mes</b>,
+              escritas igual que en la plantilla.`;
+        throw e;
+      }
     }
     el('loading').style.display='none'; el('app').style.display='block';
     el('tc').value=D.sup.tipo_cambio;
@@ -454,6 +511,7 @@ async function cargar(){
     el('loading').style.display='none';
     el('setup').style.display='block';
     el('err').innerHTML = e && e.entorno ? diagEntorno()
+      : (e && e.detalle) ? e.detalle
       : (e.message||'No se pudo leer la planilla.');
   }
 }
